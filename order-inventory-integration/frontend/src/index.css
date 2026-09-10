@@ -1,0 +1,12 @@
+body{
+  background-color:aquamarine; 
+  text-align:center; 
+  margin:10%; 
+}
+
+.page{
+   border:2px solid whitesmoke; 
+   border-radius:2%; 
+   padding:5%; 
+   background-color:whitesmoke; 
+}
