@@ -1,5 +1,17 @@
 # Manubag_IT342_ModularMonolithIntegration
 # LAB1
+
+### Network tab evidence lab 1
+ 
+- InventoryServiceImpl must be package-private --> Order module may depend only on the InventoryService interface (constructor injection)
+  ![Confirmed order](confirmed screenshot.png)
+ 
+- Supabase credentials must be kept out of the repo (environment variables / .gitignore'd config)
+  ![Rejected order](rejected screenshot.png)
+ 
+- Test both the confirmed and rejected paths end-to-end and capture Network tab evidence
+  ![Supabase setup](supabase screenshot.png)
+
 # Order + Inventory Integration Lab
 
 A single Spring Boot application with two in-process modules — **Order**
