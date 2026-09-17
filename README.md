@@ -4,13 +4,13 @@
 ### Network tab evidence lab 1
  
 - InventoryServiceImpl must be package-private --> Order module may depend only on the InventoryService interface (constructor injection)
-  ![Confirmed order](./confirmed screenshot.png)
+  ![Confirmed order](./confirmed%20screenshot.png)
  
 - Supabase credentials must be kept out of the repo (environment variables / .gitignore'd config)
-  ![Rejected order](./rejected screenshot.png)
+  ![Rejected order](./rejected%20screenshot.png)
  
 - Test both the confirmed and rejected paths end-to-end and capture Network tab evidence
-  ![Supabase setup](./supabase screenshot.png)
+  ![Supabase setup](./supabase%20screenshot.png)
 
 # Order + Inventory Integration Lab
 
@@ -268,16 +268,16 @@ makes this swap contained instead of a full rewrite.
  ### Network tab evidence lab2
  
 - A multi-item order where all items succeed (CONFIRMED)
-  ![Succeed confirmed](.confirmed.png)
+  ![Succeed confirmed](./confirmed.png)
  
 - A multi-item order where one item fails and the whole order is REJECTED with no partial reservation
-  ![Whole order rejected](.multiple item rejected.png)
+  ![Whole order rejected](./multiple%20item%20rejected.png)
  
 - A cancel with restock reflected in GET /api/inventory afterward
-  ![Cancel with restock](.cancel.png)
+  ![Cancel with restock](./cancel.png)
  
 - The notification feed showing a confirmed order, a rejected order, and a low-stock alert
-  ![Notification feed](.low stock alert.png)
+  ![Notification feed](./low%20stock%20alert.png)
  
 1. Multi-item orders and atomicity
  
