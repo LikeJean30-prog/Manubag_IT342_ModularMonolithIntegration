@@ -1,13 +1,9 @@
 package edu.cit.manubag.shop;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.time.OffsetDateTime;
 
@@ -20,12 +16,6 @@ public class Order {
     @Column(name = "order_id")
     private Long orderId;
 
-    @Column(name = "product_id", nullable = false)
-    private String productId;
-
-    @Column(name = "quantity", nullable = false)
-    private int quantity;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private OrderStatus status;
@@ -36,39 +26,35 @@ public class Order {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("orderItemId asc")
+    private List<OrderItem> items = new ArrayList<>();
+
+
     protected Order() {
-        // required by JPA
+
     }
 
-    public Order(String productId, int quantity, OrderStatus status, String reason) {
-        this.productId = productId;
-        this.quantity = quantity;
+    public Order(OrderStatus status, String reason) {
         this.status = status;
         this.reason = reason;
         this.createdAt = OffsetDateTime.now();
     }
 
+    public void addItem(String productId, int quantity) {
+        items.add(new OrderItem(this, productId, quantity));
+    }
+
     public Long getOrderId() {
         return orderId;
     }
-
-    public String getProductId() {
-        return productId;
-    }
-
-    public int getQuantity() {
-        return quantity;
-    }
-
     public OrderStatus getStatus() {
         return status;
     }
-
+    public void setStatus(OrderStatus status) { this.status = status; }
     public String getReason() {
         return reason;
     }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public List<OrderItem> getItems() { return items; }
 }

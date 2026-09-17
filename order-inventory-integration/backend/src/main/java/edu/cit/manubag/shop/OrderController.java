@@ -2,10 +2,8 @@ package edu.cit.manubag.shop;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -21,5 +19,15 @@ public class OrderController {
     public ResponseEntity<OrderResponse> placeOrder(@Valid @RequestBody OrderRequest request) {
         OrderResponse response = orderService.placeOrder(request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{orderId}/cancel")
+    public ResponseEntity<CancelResponse> cancelOrder(@PathVariable Long orderId) {
+        return ResponseEntity.ok(orderService.cancelOrder(orderId));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<OrderSummary>> getOrders() {
+        return ResponseEntity.ok(orderService.getOrderHistory());
     }
 }
