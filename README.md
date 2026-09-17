@@ -4,13 +4,13 @@
 ### Network tab evidence lab 1
  
 - InventoryServiceImpl must be package-private --> Order module may depend only on the InventoryService interface (constructor injection)
-  ![Confirmed order](.confirmed screenshot.png)
+  ![Confirmed order](./confirmed screenshot.png)
  
 - Supabase credentials must be kept out of the repo (environment variables / .gitignore'd config)
-  ![Rejected order](.rejected screenshot.png)
+  ![Rejected order](./rejected screenshot.png)
  
 - Test both the confirmed and rejected paths end-to-end and capture Network tab evidence
-  ![Supabase setup](.supabase screenshot.png)
+  ![Supabase setup](./supabase screenshot.png)
 
 # Order + Inventory Integration Lab
 
