@@ -252,7 +252,13 @@ makes this swap contained instead of a full rewrite.
 
 # LAB 2
 ## 9/17/2026
- Reflection (300–500 words)
+# NETWORK EVIDENCE 
+# A multi-item order where all items succeed (CONFIRMED)
+
+# A multi-item order where one item fails and the whole order is REJECTED with no partial reservation
+# A cancel with restock reflected in GET /api/inventory afterward
+# The notification feed showing a confirmed order, a rejected order, and a low-stock alert
+
  
 1. Multi-item orders and atomicity
  
