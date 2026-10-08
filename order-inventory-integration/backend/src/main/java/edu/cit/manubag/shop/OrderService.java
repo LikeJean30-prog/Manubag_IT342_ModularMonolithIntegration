@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -115,6 +116,105 @@ public class OrderService {
         orderRepository.save(order);
 
         return new CancelResponse(orderId, OrderStatus.CANCELLED.name(), "Order cancelled and stock restored.");
+    }
+
+    /** Records an order we cannot fill (for example an unknown product) as REJECTED, without touching Inventory. */
+    @Transactional
+    public Long recordRejectedOrder(OrderRequest request, String reason) {
+        Order order = new Order(OrderStatus.REJECTED, reason);
+        // order_items.product_id has a foreign key to inventory, so lines for unknown products are left out
+        Set<String> known = inventoryService.getAllItems().stream()
+                .map(InventoryItem::productId)
+                .collect(Collectors.toSet());
+        for (OrderItemRequest item : request.items()) {
+            if (known.contains(item.productId())) {
+                order.addItem(item.productId(), item.quantity());
+            }
+        }
+        orderRepository.save(order);
+        eventPublisher.publishEvent(new OrderRejectedEvent(order.getOrderId(), reason));
+        return order.getOrderId();
+    }
+
+    /** Records an order that cannot be filled yet because the missing stock is on its way. Reserves nothing. */
+    @Transactional
+    public Long placeBackorder(OrderRequest request, String reason) {
+        Order order = new Order(OrderStatus.BACKORDERED, reason);
+        for (OrderItemRequest item : request.items()) {
+            order.addItem(item.productId(), item.quantity());
+        }
+        orderRepository.save(order);
+        return order.getOrderId();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderLineItem> getOrderLines(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        return order.getItems().stream()
+                .map(item -> new OrderLineItem(item.getProductId(), item.getQuantity()))
+                .toList();
+    }
+
+    /**
+     * Fills a backordered order: reserves every line (all-or-nothing) and confirms it, or cancels it
+     * if the stock still is not there. Returns CONFIRMED or CANCELLED; any other status is returned unchanged.
+     */
+    @Transactional
+    public OrderStatus resolveBackorder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+        if (order.getStatus() != OrderStatus.BACKORDERED) {
+            return order.getStatus();
+        }
+
+        boolean canFill = true;
+        for (OrderItem item : order.getItems()) {
+            if (inventoryService.getItem(item.getProductId()).stock() < item.getQuantity()) {
+                canFill = false;
+                break;
+            }
+        }
+
+        if (canFill) {
+            for (OrderItem item : order.getItems()) {
+                if (!inventoryService.reserve(item.getProductId(), item.getQuantity())) {
+                    throw new IllegalStateException("Stock for " + item.getProductId() + " changed before it could be reserved");
+                }
+            }
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setReason(null);
+            orderRepository.save(order);
+            eventPublisher.publishEvent(new OrderPlacedEvent(order.getOrderId()));
+            return OrderStatus.CONFIRMED;
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setReason("Could not be filled after the supplier delivery");
+        orderRepository.save(order);
+        return OrderStatus.CANCELLED;
+    }
+
+    /**
+     * Cancels a confirmed order (restocking it) or a backordered one, without throwing when there is
+     * nothing to cancel. Returns true if this call cancelled it.
+     */
+    @Transactional
+    public boolean cancelIfActive(Long orderId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return false;
+        }
+        if (order.getStatus() == OrderStatus.CONFIRMED) {
+            for (OrderItem item : order.getItems()) {
+                inventoryService.restock(item.getProductId(), item.getQuantity());
+            }
+        } else if (order.getStatus() != OrderStatus.BACKORDERED) {
+            return false;
+        }
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+        return true;
     }
 
     @Transactional(readOnly = true)

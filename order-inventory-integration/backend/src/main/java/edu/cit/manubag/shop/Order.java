@@ -55,6 +55,7 @@ public class Order {
     public String getReason() {
         return reason;
     }
+    public void setReason(String reason) { this.reason = reason; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public List<OrderItem> getItems() { return items; }
 }

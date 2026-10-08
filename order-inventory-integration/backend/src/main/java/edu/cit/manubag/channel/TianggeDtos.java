@@ -15,7 +15,7 @@ final class TianggeDtos {
     record ResolutionRequest(String status) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record FeedResponse(List<FeedEvent> events, String nextCursor) {}
+    record FeedResponse(List<FeedEvent> events, Long nextCursor) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record FeedEvent(long seq, String eventId, String type, String orderId,

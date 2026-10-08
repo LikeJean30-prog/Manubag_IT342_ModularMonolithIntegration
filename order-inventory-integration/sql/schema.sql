@@ -1,3 +1,4 @@
+
 drop table if exists notifications cascade;
 drop table if exists order_items cascade;
 drop table if exists orders cascade;
@@ -11,7 +12,7 @@ create table inventory (
 
 create table orders (
     order_id    bigint generated always as identity primary key,
-    status      text not null check (status in ('CONFIRMED', 'REJECTED', 'CANCELLED')),
+    status      text not null check (status in ('CONFIRMED', 'REJECTED', 'CANCELLED', 'BACKORDERED')),
     reason      text,
     created_at  timestamptz not null default now()
 );
@@ -35,3 +36,4 @@ insert into inventory (product_id, name, stock) values
     ('P300', 'USB-C Hub', 0)
 on conflict (product_id) do update
     set name = excluded.name, stock = excluded.stock;
+

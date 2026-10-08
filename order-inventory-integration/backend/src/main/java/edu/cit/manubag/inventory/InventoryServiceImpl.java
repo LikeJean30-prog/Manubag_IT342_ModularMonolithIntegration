@@ -1,6 +1,7 @@
 package edu.cit.manubag.inventory;
 
 import edu.cit.manubag.event.LowStockEvent;
+import edu.cit.manubag.event.StockChangedEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ class InventoryServiceImpl implements InventoryService {
 
         inventory.setStock(inventory.getStock() - quantity);
         inventoryRepository.save(inventory);
+        eventPublisher.publishEvent(new StockChangedEvent(inventory.getProductId()));
 
         if (inventory.getStock() < lowStockThreshold) {
             eventPublisher.publishEvent(
@@ -68,6 +70,7 @@ class InventoryServiceImpl implements InventoryService {
 
         inventory.setStock(inventory.getStock() + quantity);
         inventoryRepository.save(inventory);
+        eventPublisher.publishEvent(new StockChangedEvent(inventory.getProductId()));
     }
 
     private InventoryItem toItem(Inventory inventory) {

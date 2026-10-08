@@ -1,25 +1,22 @@
 package edu.cit.manubag.channel;
 
-import edu.cit.manubag.event.LowStockEvent;
-import org.springframework.context.event.EventListener;
+import edu.cit.manubag.event.StockChangedEvent;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
-import java.util.List;
-
+/** Task 3: any stock change (order, cancellation, delivery, UI) reaches Tiangge, after the change is committed. */
 @Component
 class StockEventBridge {
 
-    private final TianggeClient tianggeClient;
+    private final StockSync stockSync;
 
-    StockEventBridge(TianggeClient tianggeClient) {
-        this.tianggeClient = tianggeClient;
+    StockEventBridge(StockSync stockSync) {
+        this.stockSync = stockSync;
     }
 
-    @EventListener
-    public void onStockChanged(LowStockEvent event) {
-        // Pass a list containing the stock item
-        tianggeClient.updateStock(List.of(
-                new TianggeDtos.StockItem(event.productId(), event.remainingStock())
-        ));
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    void onStockChanged(StockChangedEvent event) {
+        stockSync.markDirty(event.productId());
     }
 }

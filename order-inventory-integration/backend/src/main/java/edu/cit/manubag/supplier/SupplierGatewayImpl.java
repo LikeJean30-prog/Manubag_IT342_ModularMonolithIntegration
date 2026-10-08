@@ -3,6 +3,7 @@ package edu.cit.manubag.supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -32,8 +33,9 @@ class SupplierGatewayImpl implements SupplierGateway {
         this.properties = properties;
     }
 
+    // REQUIRES_NEW: a reorder triggered after another transaction committed must still be saved and committed
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ReorderResult reorder(String productId, int unitsNeeded) {
         List<SupplierOrder> inFlight = orderRepository.findByProductIdAndStatusIn(productId, OPEN_STATUSES);
         if (!inFlight.isEmpty()) {
@@ -51,15 +53,19 @@ class SupplierGatewayImpl implements SupplierGateway {
         int cases = ceilDiv(unitsNeeded, mapping.getPackSize());
 
         SupplierOrder order = new SupplierOrder(productId, unitsNeeded, cases);
-        order = orderRepository.save(order);
         String buyerRef = "RO-" + java.util.UUID.randomUUID().toString().substring(0, 8);
-
         String requestId = buyerRef;
-        order.assignReferences(buyerRef, requestId);
-        orderRepository.save(order);
+        order.assignReferences(buyerRef, requestId); // buyer_ref is NOT NULL, so set it before the first save
+        order = orderRepository.save(order);
 
         attemptSubmit(order, mapping.getSku(), cases, buyerRef, requestId);
         return toResult(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasOpenReorder(String productId) {
+        return !orderRepository.findByProductIdAndStatusIn(productId, OPEN_STATUSES).isEmpty();
     }
 
     void attemptSubmit(SupplierOrder order, String sku, int cases, String buyerRef, String requestId) {

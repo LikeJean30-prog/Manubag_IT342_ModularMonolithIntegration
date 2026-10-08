@@ -3,5 +3,6 @@ package edu.cit.manubag.shop;
 public enum OrderStatus {
     CONFIRMED,
     REJECTED,
-    CANCELLED
+    CANCELLED,
+    BACKORDERED
 }

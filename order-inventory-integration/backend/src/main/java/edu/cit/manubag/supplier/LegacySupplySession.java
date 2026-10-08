@@ -69,6 +69,10 @@ class LegacySupplySession {
         } catch (org.springframework.web.client.RestClientResponseException ex) {
             throw new LegacySupplyExceptions.SupplierUnavailableException(
                     "LegacySupply auth failed: " + ex.getStatusCode(), ex);
+        } catch (org.springframework.web.client.RestClientException ex) {
+            // e.g. a reply that is not XML: a glitch, try again later
+            throw new LegacySupplyExceptions.SupplierUnavailableException(
+                    "LegacySupply auth reply unreadable: " + ex.getMessage(), ex);
         }
     }
 

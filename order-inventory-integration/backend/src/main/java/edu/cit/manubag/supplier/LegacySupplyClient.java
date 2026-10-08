@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.RestClientException;
 
 import static edu.cit.manubag.supplier.LegacySupplyExceptions.AuthRejectedException;
 import static edu.cit.manubag.supplier.LegacySupplyExceptions.NonRetryableSupplierException;
@@ -68,7 +69,11 @@ class LegacySupplyClient {
         } catch (SessionInvalidException retryWithFreshSession) {
             log.info("Session rejected, renewing and retrying once");
             String fresh = session.renew();
-            return callGuarded(call, fresh);
+            try {
+                return callGuarded(call, fresh);
+            } catch (SessionInvalidException stillRejected) {
+                throw new SupplierUnavailableException("LegacySupply keeps rejecting the session: " + stillRejected.getMessage());
+            }
         }
     }
 
@@ -79,6 +84,9 @@ class LegacySupplyClient {
             throw translate(httpError);
         } catch (ResourceAccessException timeoutOrConnect) {
             throw new SupplierUnavailableException("LegacySupply unreachable/timed out", timeoutOrConnect);
+        } catch (RestClientException unreadable) {
+            throw new SupplierUnavailableException(
+                    "LegacySupply sent an unreadable reply: " + unreadable.getMessage(), unreadable);
         }
     }
 
@@ -102,7 +110,8 @@ class LegacySupplyClient {
         }
 
         return switch (code) {
-            case "E-AUTH-02", "E-AUTH-03", "E-AUTH-07" -> {
+            // a bare 401 with no error body means the session token expired
+            case "E-AUTH-02", "E-AUTH-03", "E-AUTH-07", "HTTP-401" -> {
                 session.invalidate();
                 yield new SessionInvalidException(message);
             }

@@ -2,6 +2,7 @@ package edu.cit.manubag.channel;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.cit.manubag.config.AppInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,7 +15,6 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -24,13 +24,15 @@ class TianggeClient {
     private static final int ATTEMPTS = 3;
 
     private final RestClient restClient;
-    private final Instant startTime = Instant.now();
+    private final AppInstance appInstance;
 
     TianggeClient(
             @Value("${app.supplier.client-id}") String clientId,
             @Value("${tiangge.api.key}") String apiKey,
             @Value("${tiangge.base-url:https://legacysupply.onrender.com/tiangge/v1}") String baseUrl,
-            String clientInstanceId) {
+            AppInstance appInstance) {
+
+        this.appInstance = appInstance;
 
         // Own JSON mapper: the app's XmlMapper bean stops Spring Boot from creating one.
         ObjectMapper json = new ObjectMapper()
@@ -52,13 +54,13 @@ class TianggeClient {
                 .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .defaultHeader("X-Client-Id", clientId)
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                .defaultHeader("X-Client-Instance", clientInstanceId)
+                .defaultHeader("X-Client-Instance", appInstance.id())
                 .build();
     }
 
     boolean sendHeartbeat() {
-        long uptime = Instant.now().getEpochSecond() - startTime.getEpochSecond();
-        var body = new TianggeDtos.HeartbeatRequest("my-shop", startTime.toString(), uptime);
+        long uptime = java.time.Duration.between(appInstance.startedAt(), java.time.Instant.now()).toSeconds();
+        var body = new TianggeDtos.HeartbeatRequest("my-shop", appInstance.startedAt().toString(), uptime);
         return send("heartbeat", () -> restClient.post().uri("/instances/heartbeat")
                 .body(body).retrieve().toBodilessEntity());
     }
@@ -71,6 +73,12 @@ class TianggeClient {
     boolean updateStock(List<TianggeDtos.StockItem> stockItems) {
         return send("stock", () -> restClient.put().uri("/stock")
                 .body(stockItems).retrieve().toBodilessEntity());
+    }
+
+    /** One attempt only: if it fails, the caller reads fresh numbers and tries again a moment later. */
+    boolean updateStockQuick(List<TianggeDtos.StockItem> stockItems) {
+        return send("stock", () -> restClient.put().uri("/stock")
+                .body(stockItems).retrieve().toBodilessEntity(), 1);
     }
 
     boolean sendOrderDecision(String orderId, String decision, String shopOrderId) {
@@ -91,7 +99,7 @@ class TianggeClient {
                 .body(body).retrieve().toBodilessEntity());
     }
 
-    /** Backorder outcome: ACCEPTED or CANCELLED. Check the path and body against the manual's backorders section. */
+    /** Backorder outcome: ACCEPTED or CANCELLED. */
     boolean resolveBackorder(String orderId, String status) {
         var body = new TianggeDtos.ResolutionRequest(status);
         return send("resolution " + orderId + " " + status, () -> restClient.post()
@@ -100,11 +108,11 @@ class TianggeClient {
     }
 
     /** Returns null if Tiangge could not be reached; the caller should simply try again on the next poll. */
-    TianggeDtos.FeedResponse fetchFeed(String afterCursor) {
+    TianggeDtos.FeedResponse fetchFeed(long afterSeq) {
         try {
             return restClient.get()
                     .uri(u -> u.path("/feed")
-                            .queryParam("after", afterCursor != null ? afterCursor : "0")
+                            .queryParam("after", afterSeq)
                             .queryParam("limit", 50)
                             .build())
                     .retrieve()
@@ -117,7 +125,11 @@ class TianggeClient {
 
     /** true = nothing more to send (delivered, or Tiangge definitively refused it); false = try again later. */
     private boolean send(String what, Runnable call) {
-        for (int attempt = 1; attempt <= ATTEMPTS; attempt++) {
+        return send(what, call, ATTEMPTS);
+    }
+
+    private boolean send(String what, Runnable call, int attempts) {
+        for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
                 call.run();
                 return true;
@@ -125,8 +137,10 @@ class TianggeClient {
                 log.error("Tiangge refused {}: {}", what, describe(refused));
                 return true;
             } catch (RestClientException e) {
-                log.warn("{} failed (attempt {}/{}): {}", what, attempt, ATTEMPTS, describe(e));
-                sleep(200L << attempt);
+                log.warn("{} failed (attempt {}/{}): {}", what, attempt, attempts, describe(e));
+                if (attempt < attempts) {
+                    sleep(200L << attempt);
+                }
             }
         }
         return false;
